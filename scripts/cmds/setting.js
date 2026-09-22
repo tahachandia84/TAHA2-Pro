@@ -196,7 +196,7 @@ module.exports = {
 		name: "setting",
 		aliases: ["settings"],
 		version: "8.0.0",
-		author: "EryXenX",
+		author: "TAHA KHAN",
 		countDown: 5,
 		role: 2,
 		shortDescription: "Bot settings",
