@@ -1,69 +1,106 @@
 module.exports = {
   config: {
     name: "supportgc",
-    aliases: ["supportbox"],
-    version: "1.8",
-    author: "MOHAMMAD AKASH",
+    aliases: ["support", "gc"],
+    version: "0.0.8",
+    author: "Siam Ahmed Saan",
     countDown: 5,
     role: 0,
     shortDescription: {
       en: "Add user to support group",
     },
     longDescription: {
-      en: "This command adds the user to the admin support group, notifies the support group, and sends a copy to the admin inbox.",
+      en: "Adds the user to the admin support group, notifies everyone, and uses fancy.",
     },
-    category: "supportgc",
+    category: "group",
     guide: {
-      en: "To use this command, type /supportgc",
+      en: "Type )supportgc to join the support group",
     },
   },
 
   onStart: async function ({ api, event }) {
-    const supportGroupId = "2253018758534493"; // Support group ID
-    const commandThreadID = event.threadID; // যে গ্রুপ থেকে কমান্ড দেওয়া হয়েছে
-    const adminUID = "100078049308655"; // আপনার UID
-    const userID = event.senderID;
+    try {
+      const supportGroupId = "6298075880212390";
+      const commandThreadID = event.threadID; 
+      const userID = event.senderID;
+      
+      const userInfo = await api.getUserInfo(userID);
+      const userName = userInfo[userID].name;
+      
+      const threadInfo = await api.getThreadInfo(supportGroupId);
+      const participantIDs = threadInfo.participantIDs;
 
-    // Get user info for name + ID
-    const userInfo = await api.getUserInfo(userID);
-    const userName = userInfo[userID].name;
-
-    // Fetch participants in support group
-    const threadInfo = await api.getThreadInfo(supportGroupId);
-    const participantIDs = threadInfo.participantIDs;
-
-    if (participantIDs.includes(userID)) {
-      // Already in support group → only command group notification
-      api.sendMessage(
-        `📌 𝐀ᴅᴍɪɴ Sᴜᴘᴘᴏʀᴛ Gʀᴏᴜᴘ\n\n🤖 Nᴏᴛɪᴄᴇ: ${userName}, you are already a member of the support group.\n📩 Check spam or message requests if not visible.`,
-        commandThreadID
-      );
-    } else {
-      // Add user
+      if (participantIDs.includes(userID)) {
+        return api.sendMessage(
+          `
+╭─❖
+│ 💌 𝐒𝐔𝐏𝐏𝐎𝐑𝐓 𝐆𝐑𝐎𝐔𝐏
+├─•
+│ 🤖 𝐍ᴏᴛɪᴄᴇ: 𝐔sᴇʀ 𝐀ʟʀᴇᴀᴅʏ 𝐀ᴅᴅᴇᴅ!
+│ 👤 𝐍𝐚𝐦𝐞: ${userName}
+│ 📩 𝐂ʜᴇᴄᴋ 𝐬ᴘᴀᴍ 𝐨ʀ 𝐦𝐞ssage requests
+╰─❖
+          `,
+          commandThreadID
+        );
+      }
+      
       api.addUserToGroup(userID, supportGroupId, (err) => {
         if (err) {
-          // Error → command group notification
-          api.sendMessage(
-            `📌 𝐀ᴅᴍɪɴ Sᴜᴘᴘᴏʀᴛ Gʀᴏᴜᴘ\n\n⚠️ Eʀʀᴏʀ: Unable to add ${userName} (ID: ${userID}).\n❗ Account might be private or message requests blocked.`,
+          return api.sendMessage(
+            `
+╭─❖
+│ ⚠️ 𝐀ᴅᴍɪɴ 𝐒ᴜᴘᴘᴏʀᴛ 𝐆𝐑𝐎𝐔𝐏
+├─•
+│ ❌ 𝐄ʀʀᴏʀ: Unable to add user
+│ 👤 𝐍𝐚𝐦𝐞: ${userName}
+│ 🆔 𝐔sᴇʀ ID: ${userID}
+│ ❗ Account might be private or message requests blocked
+╰─❖
+            `,
             commandThreadID
           );
-        } else {
-          // Success → command group (light notification)
-          api.sendMessage(
-            `✅ ${userName} (ID: ${userID}) has been added to the support group.`,
-            commandThreadID
-          );
-
-          // Full notification message
-          const notificationMessage = `📌 𝐀ᴅᴍɪɴ Sᴜᴘᴘᴏʀᴛ Gʀᴏᴜᴘ\n\n👤 New user added: ${userName} (ID: ${userID})\n✅ Please approve or check the user in the support group.`;
-
-          // Send to support group
-          api.sendMessage(notificationMessage, supportGroupId);
-
-          // Send the same to admin inbox
-          api.sendMessage(notificationMessage, adminUID);
         }
+        
+        api.sendMessage(
+          `
+╭─❖
+│ ✅ 𝐀ᴅᴅ 𝐒ᴜᴄᴄᴇss
+├─•
+│ 👤 𝐍𝐚𝐦𝐞: ${userName}
+│ 🆔 𝐔sᴇʀ ID: ${userID}
+│ 🎉 𝐍ᴏᴡ 𝐀ᴅᴅᴇᴅ 𝐒ᴜᴄᴄᴇssғᴜʟ 𝐒ᴜᴘᴘᴏʀᴛ 𝐆𝐫𝐨ᴜᴘ!
+╰─❖
+          `,
+          commandThreadID
+        );
+        
+        const notificationMessage = `
+╭─❖
+│ 💌 𝐀ᴅᴍɪɴ 𝐒ᴜᴘᴘᴏʀᴛ 𝐆𝐑𝐎𝐔𝐏
+├─•
+│ 👤 𝐍ᴇᴡ 𝐔sᴇʀ 𝐀ᴅᴅᴇᴅ
+│ 👤 𝐍𝐚𝐦𝐞: ${userName}
+│ 🆔 𝐔sᴇʀ ID: ${userID}
+│ ✅ 𝐂ʜᴇᴄᴋ 𝐢ɴ 𝐒ᴜᴘᴘᴏʀᴛ 𝐆𝐫𝐨ᴜᴘ
+╰─❖
+`;
+        
+        api.sendMessage(notificationMessage, supportGroupId);
       });
+    } catch (err) {
+      console.error("[SUPPORTGC CMD ERROR]", err);
+      api.sendMessage(
+        `
+╭─❖
+│ ❌ 𝐄ʀʀᴏʀ
+├─•
+│ Failed to process support group add
+╰─❖
+        `,
+        event.threadID,
+        event.messageID
+      );
     }
   },
 };

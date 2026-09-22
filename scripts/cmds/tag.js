@@ -3,7 +3,7 @@ module.exports = {
     name: "tag",
     category: "box chat",
     role: 0,
-    author: "EryXenX",
+    author: "Siam Ahmed Saan",
     countDown: 3,
     description: {
       en: "Tag members by name, reply or everyone"

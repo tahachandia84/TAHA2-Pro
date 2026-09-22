@@ -5,19 +5,22 @@ module.exports = {
     name: "accept",
     aliases: ['acp'],
     version: "1.0",
-    author: "Loid Butter",
+    author: "xnil6x",
     countDown: 8,
     role: 2,
-    shortDescription: "accept users",
-    longDescription: "accept users",
+    shortDescription: "Manage friend requests stylishly",
+    longDescription: "Accept or reject friend requests with a sleek interface",
     category: "Utility",
+    guide: {
+      en: "{pn} [add|del] [number|all]"
+    }
   },
 
   onReply: async function ({ message, Reply, event, api, commandName }) {
     const { author, listRequest, messageID } = Reply;
     if (author !== event.senderID) return;
+    const args = event.body.trim().toLowerCase().split(/\s+/);
 
-    const args = event.body.trim().toLowerCase().split(" ");
     clearTimeout(Reply.unsendTimeout);
 
     const form = {
@@ -27,7 +30,7 @@ module.exports = {
         input: {
           source: "friends_tab",
           actor_id: api.getCurrentUserID(),
-          client_mutation_id: Math.random().toString(36).substring(2, 15)
+          client_mutation_id: Math.round(Math.random() * 19).toString()
         },
         scale: 3,
         refresh_num: 0
@@ -40,110 +43,113 @@ module.exports = {
     if (args[0] === "add") {
       form.fb_api_req_friendly_name = "FriendingCometFriendRequestConfirmMutation";
       form.doc_id = "3147613905362928";
-    } else if (args[0] === "del") {
+    }
+    else if (args[0] === "del") {
       form.fb_api_req_friendly_name = "FriendingCometFriendRequestDeleteMutation";
       form.doc_id = "4108254489275063";
-    } else {
-      return api.sendMessage("Please select <add | del> <number | all>", event.threadID, event.messageID);
+    }
+    else {
+      return api.sendMessage("❌ Invalid command. Usage: <add|del> <number|all>", event.threadID, event.messageID);
     }
 
-    let targetIDs = args[1] === "all" ? listRequest.map((_, idx) => idx + 1) : args.slice(1);
+    let targetIDs = args.slice(1);
+
+    if (args[1] === "all") {
+      targetIDs = Array.from({ length: listRequest.length }, (_, i) => i + 1);
+    }
+
+    const newTargetIDs = [];
     const promiseFriends = [];
 
     for (const stt of targetIDs) {
-      const index = parseInt(stt) - 1;
-      const user = listRequest[index];
-
+      const user = listRequest[parseInt(stt) - 1];
       if (!user) {
-        failed.push(`Can't find target ${stt}`);
+        failed.push(`🚫 Can't find request #${stt}`);
         continue;
       }
-
       form.variables.input.friend_requester_id = user.node.id;
-      promiseFriends.push(api.httpPost("https://www.facebook.com/api/graphql/", {
-        ...form,
-        variables: JSON.stringify(form.variables)
-      }));
-
-      success.push({ name: user.node.name, id: user.node.id });
+      form.variables = JSON.stringify(form.variables);
+      newTargetIDs.push(user);
+      promiseFriends.push(api.httpPost("https://www.facebook.com/api/graphql/", form));
+      form.variables = JSON.parse(form.variables);
     }
 
-    const finalSuccess = [];
-    const finalFailed = [];
-
-    for (let i = 0; i < promiseFriends.length; i++) {
-      try {
-        const res = await promiseFriends[i];
-        const data = JSON.parse(res);
-        if (data.errors) {
-          finalFailed.push(success[i].name);
-        } else {
-          finalSuccess.push(success[i].name);
-        }
-      } catch {
-        finalFailed.push(success[i].name);
+    const results = await Promise.allSettled(promiseFriends);
+    
+    results.forEach((result, index) => {
+      const user = newTargetIDs[index];
+      if (result.status === "fulfilled" && !JSON.parse(result.value).errors) {
+        success.push(`✅ ${user.node.name} (${user.node.id})`);
+      } else {
+        failed.push(`❌ ${user.node.name} (${user.node.id})`);
       }
+    });
+
+    let replyMsg = "";
+    if (success.length > 0) {
+      replyMsg += `✨ Successfully ${args[0] === 'add' ? 'accepted' : 'rejected'} ${success.length} request(s):\n${success.join("\n")}\n\n`;
+    }
+    if (failed.length > 0) {
+      replyMsg += `⚠️ Failed to process ${failed.length} request(s):\n${failed.join("\n")}`;
     }
 
-    let resultMsg = "";
-    if (finalSuccess.length) {
-      resultMsg += `✅ ${args[0] === "add" ? "Accepted" : "Deleted"}: ${finalSuccess.length} user(s)\n${finalSuccess.join("\n")}`;
-    }
-    if (finalFailed.length) {
-      resultMsg += `\n❌ Failed: ${finalFailed.length} user(s)\n${finalFailed.join("\n")}`;
-    }
-    if (!resultMsg) {
-      resultMsg = "No users were processed.";
+    if (replyMsg) {
+      api.sendMessage(replyMsg, event.threadID, event.messageID);
+    } else {
+      api.unsendMessage(messageID);
+      api.sendMessage("❌ No valid requests were processed.", event.threadID);
     }
 
     api.unsendMessage(messageID);
-    return api.sendMessage(resultMsg, event.threadID);
   },
 
   onStart: async function ({ event, api, commandName }) {
-    const form = {
-      av: api.getCurrentUserID(),
-      fb_api_req_friendly_name: "FriendingCometFriendRequestsRootQueryRelayPreloader",
-      fb_api_caller_class: "RelayModern",
-      doc_id: "4499164963466303",
-      variables: JSON.stringify({ input: { scale: 3 } })
-    };
-
     try {
+      const form = {
+        av: api.getCurrentUserID(),
+        fb_api_req_friendly_name: "FriendingCometFriendRequestsRootQueryRelayPreloader",
+        fb_api_caller_class: "RelayModern",
+        doc_id: "4499164963466303",
+        variables: JSON.stringify({ input: { scale: 3 } })
+      };
+      
       const response = await api.httpPost("https://www.facebook.com/api/graphql/", form);
-      const listRequest = JSON.parse(response)?.data?.viewer?.friending_possibilities?.edges || [];
-
-      if (listRequest.length === 0) {
-        return api.sendMessage("No pending friend requests found.", event.threadID);
+      const listRequest = JSON.parse(response).data.viewer.friending_possibilities.edges;
+      
+      if (!listRequest || listRequest.length === 0) {
+        return api.sendMessage("🌟 You have no pending friend requests!", event.threadID);
       }
 
-      let msg = "";
-      listRequest.forEach((user, i) => {
-        msg += `\n${i + 1}. Name: ${user.node.name}`
-          + `\nID: ${user.node.id}`
-          + `\nURL: ${user.node.url.replace("www.facebook", "fb")}`
-          + `\nTime: ${moment().tz("Asia/Manila").format("DD/MM/YYYY HH:mm:ss")}\n`;
+      let msg = "📩 Pending Friend Requests:\n\n";
+      listRequest.forEach((user, index) => {
+        msg += `🔹 ${index + 1}. ${user.node.name}\n`;
+        msg += `   🆔: ${user.node.id}\n`;
+        msg += `   🔗: ${user.node.url.replace("www.facebook", "fb")}\n`;
+        msg += `   ⏰: ${moment(user.time * 1009).tz("Asia/Manila").format("DD/MM/YYYY HH:mm:ss")}\n\n`;
       });
 
-      api.sendMessage(
-        `${msg}\nReply to this message with: <add | del> <number | all>`,
-        event.threadID,
-        (e, info) => {
-          global.GoatBot.onReply.set(info.messageID, {
-            commandName,
-            messageID: info.messageID,
-            listRequest,
-            author: event.senderID,
-            unsendTimeout: setTimeout(() => {
-              api.unsendMessage(info.messageID);
-            }, this.config.countDown * 1000)
-          });
-        },
-        event.messageID
-      );
+      msg += "💡 Reply with:\n"
+           + "• 'add <number>' to accept a request\n"
+           + "• 'del <number>' to reject a request\n"
+           + "• 'add all' to accept all\n"
+           + "• 'del all' to reject all\n\n"
+           + "⏳ This menu will auto-delete in 2 minutes";
+
+      api.sendMessage(msg, event.threadID, (e, info) => {
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName,
+          messageID: info.messageID,
+          listRequest,
+          author: event.senderID,
+          unsendTimeout: setTimeout(() => {
+            api.unsendMessage(info.messageID);
+          }, 2 * 60 * 1000) // 2 minutes
+        });
+      }, event.messageID);
+
     } catch (error) {
       console.error(error);
-      api.sendMessage("Error retrieving friend request list.", event.threadID);
+      api.sendMessage("❌ An error occurred while fetching friend requests.", event.threadID);
     }
   }
 };

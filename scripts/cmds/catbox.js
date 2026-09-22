@@ -1,104 +1,65 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const FormData = require("form-data");
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs-extra');
+const path = require('path');
 
 module.exports = {
   config: {
     name: "catbox",
-    version: "1.0.0",
-    author: "EryXenX",
+    aliases: ["cb"],
+    version: "1.0",
+    author: "Siam Ahmed Saan",
+    countDown: 5,
     role: 0,
-    shortDescription: "Upload media to Catbox",
-    longDescription: "Reply to an image, video, audio, or file to upload it to Catbox",
+    shortDescription: "Upload file to catbox.moe",
     category: "media",
-    guide: "{pn} (reply to a file)",
-    cooldowns: 5
+    guide: {
+      en: "Reply to an image/video"
+    }
   },
 
-  onStart: async function ({ api, event }) {
-    const { threadID, messageID, type, messageReply } = event;
-
-    if (
-      type !== "message_reply" ||
-      !messageReply ||
-      !messageReply.attachments ||
-      messageReply.attachments.length === 0
-    ) {
-      return api.sendMessage(
-        "Reply to an image, video, audio, or file.",
-        threadID,
-        messageID
-      );
+  onStart: async function ({ message, event, api }) {
+    if (!event.messageReply || !event.messageReply.attachments) {
+      return message.reply("Reply to an image or video");
     }
 
-    const attachment = messageReply.attachments[0];
-    const ext = attachment.filename
-      ? path.extname(attachment.filename)
-      : ".tmp";
+    const attachment = event.messageReply.attachments[0];
+    api.setMessageReaction("⏳", event.messageID);
 
-    const cacheDir = path.join(__dirname, "cache");
-
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
-
-    const filePath = path.join(
-      cacheDir,
-      `catbox_${Date.now()}${ext}`
-    );
+    const cacheDir = path.join(__dirname, 'cache');
+    await fs.ensureDir(cacheDir);
+    const tempPath = path.join(cacheDir, `upload_${Date.now()}.tmp`);
 
     try {
-      const file = await axios({
-        url: attachment.url,
-        method: "GET",
-        responseType: "stream"
-      });
-
-      const writer = fs.createWriteStream(filePath);
-      file.data.pipe(writer);
-
+      const dlRes = await axios({ url: attachment.url, responseType: 'stream' });
+      const writer = fs.createWriteStream(tempPath);
+      dlRes.data.pipe(writer);
       await new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
+        writer.on('finish', resolve);
+        writer.on('error', reject);
       });
 
       const form = new FormData();
-      form.append("reqtype", "fileupload");
-      form.append("fileToUpload", fs.createReadStream(filePath));
+      form.append('reqtype', 'fileupload');
+      form.append('fileToUpload', fs.createReadStream(tempPath));
 
-      const upload = await axios.post(
-        "https://catbox.moe/user/api.php",
-        form,
-        {
-          headers: form.getHeaders(),
-          maxBodyLength: Infinity,
-          maxContentLength: Infinity
+      const uploadRes = await axios.post('https://catbox.moe/user/api.php', form, {
+        headers: {
+          ...form.getHeaders(),
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Origin': 'https://catbox.moe',
+          'Referer': 'https://catbox.moe/'
         }
-      );
+      });
 
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-
-      return api.sendMessage(
-        upload.data.trim(),
-        threadID,
-        messageID
-      );
+      await fs.unlink(tempPath);
+      api.setMessageReaction("✅", event.messageID);
+      message.reply(uploadRes.data);
 
     } catch (err) {
-      console.error("Catbox Error:", err);
-
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-
-      return api.sendMessage(
-        "Upload failed.",
-        threadID,
-        messageID
-      );
+      api.setMessageReaction("❌", event.messageID);
+      message.reply(`Failed: ${err.message}`);
+      if (fs.existsSync(tempPath)) await fs.unlink(tempPath);
     }
   }
 };
