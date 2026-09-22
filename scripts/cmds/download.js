@@ -6,7 +6,7 @@ module.exports = {
   config: {
     name: "download",
     version: "1.4",
-    author: "MOHAMMAD AKASH",
+    author: "TAHA KHAN",
     countDown: 5,
     role: 0,
     shortDescription: "Download media from direct link",
