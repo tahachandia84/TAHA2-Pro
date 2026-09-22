@@ -7,7 +7,7 @@ module.exports = {
     name: "help",
     aliases: ["menu", "commands"],
     version: "6.4",
-    author: "EryXenX",
+    author: "TAHA KHAN",
     shortDescription: "Show all commands",
     longDescription: "Show all commands in clean UI",
     category: "system",
@@ -89,7 +89,7 @@ module.exports = {
 `╭─ 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 𝐌𝐄𝐍𝐔
 ├ Prefix : ${prefix}
 ├ Total  : ${allCommands.size}
-├ Author : EryXenX\n`;
+├ Author : TAHA KHAN\n`;
 
     for (const cat of Object.keys(categories).sort()) {
       const catTitle = categoryFont(cat.toUpperCase());
